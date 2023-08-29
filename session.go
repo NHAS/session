@@ -1,4 +1,4 @@
-package main
+package session
 
 import (
 	"context"
@@ -22,8 +22,8 @@ type expiryTimer struct {
 	maxLifeTime time.Time
 }
 
-// sessionStore holds the session data and settings
-type sessionStore[T any] struct {
+// SessionStore holds the session data and settings
+type SessionStore[T any] struct {
 	cookieName   string
 	sessions     map[string]T
 	onDelete     map[string]func(T)
@@ -38,8 +38,8 @@ type sessionStore[T any] struct {
 }
 
 // Init will initialize the SessionStore object
-func NewStore[T any](cookieName string, itemExpiry time.Duration, MaxSessionDuration int, VerboseErrors bool) (st *sessionStore[T], err error) {
-	st = &sessionStore[T]{}
+func NewStore[T any](cookieName string, itemExpiry time.Duration, MaxSessionDuration int, VerboseErrors bool) (st *SessionStore[T], err error) {
+	st = &SessionStore[T]{}
 
 	st.hmacKey, err = GenerateRandom(32)
 	if err != nil {
@@ -63,7 +63,7 @@ func NewStore[T any](cookieName string, itemExpiry time.Duration, MaxSessionDura
 
 // PutSession will store the session in the SessionStore.
 // The session will automatically expire after defined SessionStore.sessionExpiration.
-func (st *sessionStore[T]) StartSession(w http.ResponseWriter, r *http.Request, sess T, onDelete func(T)) string {
+func (st *SessionStore[T]) StartSession(w http.ResponseWriter, r *http.Request, sess T, onDelete func(T)) string {
 	cookieValue, err := GenerateRandom(32)
 	if err != nil {
 		return ""
@@ -91,7 +91,7 @@ func (st *sessionStore[T]) StartSession(w http.ResponseWriter, r *http.Request, 
 }
 
 // UpdateSession will change the stored value
-func (st *sessionStore[T]) GetSession(sessionKey string) *T {
+func (st *SessionStore[T]) GetSession(sessionKey string) *T {
 	st.lock.RLock()
 	defer st.lock.RUnlock()
 	sess, ok := st.sessions[sessionKey]
@@ -103,14 +103,14 @@ func (st *sessionStore[T]) GetSession(sessionKey string) *T {
 }
 
 // UpdateSession will change the stored value
-func (st *sessionStore[T]) UpdateSession(sessionKey string, sess T) {
+func (st *SessionStore[T]) UpdateSession(sessionKey string, sess T) {
 	st.lock.Lock()
 	st.sessions[sessionKey] = sess
 	st.lock.Unlock()
 }
 
 // DeleteSession will delete the session from the SessionStore.
-func (st *sessionStore[T]) DeleteSession(w http.ResponseWriter, r *http.Request) {
+func (st *SessionStore[T]) DeleteSession(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie(st.cookieName)
 	if err != nil {
 		return
@@ -121,7 +121,7 @@ func (st *sessionStore[T]) DeleteSession(w http.ResponseWriter, r *http.Request)
 	ClearCookie(st.cookieName, w, r)
 }
 
-func (st *sessionStore[T]) deleteEntry(cookieValue string) {
+func (st *SessionStore[T]) deleteEntry(cookieValue string) {
 
 	st.lock.Lock()
 	defer st.lock.Unlock()
@@ -142,7 +142,7 @@ func (st *sessionStore[T]) deleteEntry(cookieValue string) {
 
 // GetSessionFromRequest retrieves the session from the http.Request cookies.
 // The function will return nil if the session does not exist within the http.Request cookies.
-func (st *sessionStore[T]) GetSessionFromRequest(r *http.Request) (string, *T) {
+func (st *SessionStore[T]) GetSessionFromRequest(r *http.Request) (string, *T) {
 
 	if st == nil {
 		return "", nil
@@ -173,7 +173,7 @@ func (st *sessionStore[T]) GetSessionFromRequest(r *http.Request) (string, *T) {
 	return cookie.Value, &sess
 }
 
-func (st *sessionStore[T]) ResetTimer(sessionKey string) error {
+func (st *SessionStore[T]) ResetTimer(sessionKey string) error {
 	st.lock.RLock()
 	defer st.lock.RUnlock()
 
@@ -193,7 +193,7 @@ func (st *sessionStore[T]) ResetTimer(sessionKey string) error {
 
 // AuthorisationChecks will load the session into the http.Request context, and checks CSRF protections
 // A http.StatusUnauthorized will be retuned to the client if no session can be found.
-func (st *sessionStore[T]) AuthorisationChecks(next http.Handler, onCheck func(w http.ResponseWriter, r *http.Request, sess T) bool) http.Handler {
+func (st *SessionStore[T]) AuthorisationChecks(next http.Handler, onCheck func(w http.ResponseWriter, r *http.Request, sess T) bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, sess := st.GetSessionFromRequest(r)
 		if sess == nil {
@@ -248,7 +248,7 @@ func (st *sessionStore[T]) AuthorisationChecks(next http.Handler, onCheck func(w
 	})
 }
 
-func (st *sessionStore[T]) GenerateCSRFToken(r *http.Request) ([]byte, error) {
+func (st *SessionStore[T]) GenerateCSRFToken(r *http.Request) ([]byte, error) {
 	cookie, err := r.Cookie(st.cookieName)
 	if err != nil {
 		return nil, err
@@ -257,7 +257,7 @@ func (st *sessionStore[T]) GenerateCSRFToken(r *http.Request) ([]byte, error) {
 	return st.hmac(cookie.Value)
 }
 
-func (st *sessionStore[T]) hmac(contents string) ([]byte, error) {
+func (st *SessionStore[T]) hmac(contents string) ([]byte, error) {
 
 	//Blake2 can be used as a mac
 	hmac, err := blake2b.New256([]byte(st.hmacKey))
@@ -270,7 +270,7 @@ func (st *sessionStore[T]) hmac(contents string) ([]byte, error) {
 	return hmac.Sum(nil), nil
 }
 
-func (st *sessionStore[T]) serverError(w http.ResponseWriter, request *http.Request, err error) {
+func (st *SessionStore[T]) serverError(w http.ResponseWriter, request *http.Request, err error) {
 	message := err.Error()
 
 	//This has to do a direct call to logf so that the function that called this (the 2nd set up the call chain) will be printed
