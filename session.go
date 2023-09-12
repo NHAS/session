@@ -268,6 +268,20 @@ func (st *SessionStore[T]) GenerateCSRFTokenTemplateHTML(r *http.Request) (templ
 	return template.HTML(fmt.Sprintf("<input type=\"hidden\" name=\"csrf_token\" value=\"%x\"", token)), err
 }
 
+func (st *SessionStore[T]) GenerateCSRFTokenTemplateFuncMap(input *template.Template, r *http.Request) (*template.Template, error) {
+	if input == nil {
+		return nil, errors.New("no template supplied")
+	}
+	return input.Funcs(template.FuncMap{"csrfToken": func() template.HTML {
+		token, err := st.GenerateCSRFToken(r)
+		if err != nil {
+			return template.HTML("")
+		}
+
+		return template.HTML(fmt.Sprintf("<input type=\"hidden\" name=\"csrf_token\" value=\"%x\"", token))
+	}}), nil
+}
+
 func (st *SessionStore[T]) hmac(contents string) ([]byte, error) {
 
 	//Blake2 can be used as a mac
