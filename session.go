@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 	"sync"
@@ -255,6 +256,16 @@ func (st *SessionStore[T]) GenerateCSRFToken(r *http.Request) ([]byte, error) {
 	}
 
 	return st.hmac(cookie.Value)
+}
+
+func (st *SessionStore[T]) GenerateCSRFTokenTemplateHTML(r *http.Request) (template.HTML, error) {
+
+	token, err := st.GenerateCSRFToken(r)
+	if err != nil {
+		return template.HTML(""), err
+	}
+
+	return template.HTML(fmt.Sprintf("<input type=\"hidden\" name=\"csrf_token\" value=\"%x\"", token)), err
 }
 
 func (st *SessionStore[T]) hmac(contents string) ([]byte, error) {
