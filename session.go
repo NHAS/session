@@ -284,7 +284,7 @@ func (st *SessionStore[T]) GenerateCSRFTokenTemplateHTML(r *http.Request) (templ
 		return template.HTML(""), err
 	}
 
-	return template.HTML(fmt.Sprintf("<input type=\"hidden\" name=\"csrf_token\" id=\"csrf_token\" value=\"%x\"", token)), err
+	return template.HTML(fmt.Sprintf("<input type=\"hidden\" name=\"csrf_token\" id=\"csrf_token\" value=\"%x\">", token)), err
 }
 
 func (st *SessionStore[T]) GenerateCSRFTokenTemplateFuncMap(input *template.Template, r *http.Request) (*template.Template, error) {
@@ -297,7 +297,7 @@ func (st *SessionStore[T]) GenerateCSRFTokenTemplateFuncMap(input *template.Temp
 			return template.HTML("")
 		}
 
-		return template.HTML(fmt.Sprintf("<input type=\"hidden\" name=\"csrf_token\" value=\"%x\"", token))
+		return template.HTML(fmt.Sprintf("<input type=\"hidden\" name=\"csrf_token\" value=\"%x\">", token))
 	}}), nil
 }
 
