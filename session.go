@@ -36,10 +36,12 @@ type SessionStore[T any] struct {
 
 	MaxSessionDuration int
 	VerboseErrors      bool
+
+	csrfHeaderName string
 }
 
 // Init will initialize the SessionStore object
-func NewStore[T any](cookieName string, itemExpiry time.Duration, MaxSessionDuration int, VerboseErrors bool) (st *SessionStore[T], err error) {
+func NewStore[T any](cookieName string, csrfHeaderName string, itemExpiry time.Duration, MaxSessionDuration int, VerboseErrors bool) (st *SessionStore[T], err error) {
 	st = &SessionStore[T]{}
 
 	st.hmacKey, err = GenerateRandom(32)
@@ -58,6 +60,8 @@ func NewStore[T any](cookieName string, itemExpiry time.Duration, MaxSessionDura
 
 	st.MaxSessionDuration = MaxSessionDuration
 	st.VerboseErrors = VerboseErrors
+
+	st.csrfHeaderName = csrfHeaderName
 
 	return st, nil
 }
@@ -214,17 +218,6 @@ func (st *SessionStore[T]) AuthorisationChecks(next http.Handler, onFailureRedir
 			//Anything else will go through here
 		default:
 
-			csrfToken := r.FormValue("csrf_token")
-			if len(csrfToken) == 0 {
-				st.serverError(w, r, errors.New("token wasnt found in form"))
-				return
-			}
-			decodedToken, err := hex.DecodeString(csrfToken)
-			if err != nil {
-				st.serverError(w, r, errors.New("decoding hex token failed"))
-				return
-			}
-
 			cookie, err := r.Cookie(st.cookieName)
 			if err != nil {
 				st.serverError(w, r, err)
@@ -234,6 +227,32 @@ func (st *SessionStore[T]) AuthorisationChecks(next http.Handler, onFailureRedir
 			expectValued, err := st.hmac(cookie.Value)
 			if err != nil {
 				st.serverError(w, r, err)
+				return
+			}
+
+			var csrfToken string
+			switch r.Header.Get("content-type") {
+			case "application/json":
+
+				if r.Header.Get(st.csrfHeaderName) == "" {
+					st.serverError(w, r, errors.New("csrf header not found"))
+					return
+				}
+
+				csrfToken = r.Header.Get(st.csrfHeaderName)
+
+			default:
+				csrfToken = r.FormValue("csrf_token")
+			}
+
+			if len(csrfToken) == 0 {
+				st.serverError(w, r, errors.New("token wasnt found in form"))
+				return
+			}
+
+			decodedToken, err := hex.DecodeString(csrfToken)
+			if err != nil {
+				st.serverError(w, r, errors.New("decoding hex token failed"))
 				return
 			}
 
@@ -265,7 +284,7 @@ func (st *SessionStore[T]) GenerateCSRFTokenTemplateHTML(r *http.Request) (templ
 		return template.HTML(""), err
 	}
 
-	return template.HTML(fmt.Sprintf("<input type=\"hidden\" name=\"csrf_token\" value=\"%x\"", token)), err
+	return template.HTML(fmt.Sprintf("<input type=\"hidden\" name=\"csrf_token\" id=\"csrf_token\" value=\"%x\"", token)), err
 }
 
 func (st *SessionStore[T]) GenerateCSRFTokenTemplateFuncMap(input *template.Template, r *http.Request) (*template.Template, error) {
@@ -273,7 +292,7 @@ func (st *SessionStore[T]) GenerateCSRFTokenTemplateFuncMap(input *template.Temp
 		return nil, errors.New("no template supplied")
 	}
 	return input.Funcs(template.FuncMap{"csrfToken": func() template.HTML {
-		token, err := st.GenerateCSRFToken(r)
+		token, err := st.GenerateCSRFTokenTemplateHTML(r)
 		if err != nil {
 			return template.HTML("")
 		}
