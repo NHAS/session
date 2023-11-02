@@ -86,8 +86,9 @@ func (st *SessionStore[T]) StartSession(w http.ResponseWriter, r *http.Request, 
 
 	st.expireTimers[cookieValue] = &newExpiryTimer
 	st.sessions[cookieValue] = sess
-	st.onDelete[cookieValue] = onDelete
-
+	if onDelete != nil {
+		st.onDelete[cookieValue] = onDelete
+	}
 	st.lock.Unlock()
 
 	SetCookie(st.cookieName, cookieValue, time.Now().Add(time.Duration(st.MaxSessionDuration)*time.Second), w, r, true)
@@ -131,7 +132,7 @@ func (st *SessionStore[T]) deleteEntry(cookieValue string) {
 	st.lock.Lock()
 	defer st.lock.Unlock()
 
-	if _, ok := st.onDelete[cookieValue]; ok {
+	if _, ok := st.onDelete[cookieValue]; ok && st.onDelete[cookieValue] != nil {
 		go st.onDelete[cookieValue](st.sessions[cookieValue])
 	}
 
@@ -207,6 +208,7 @@ func (st *SessionStore[T]) AuthorisationChecks(next http.Handler, onFailureRedir
 		}
 
 		if onCheck != nil && !onCheck(w, r, *sess) {
+			http.Redirect(w, r, onFailureRedirect, http.StatusTemporaryRedirect)
 			return
 		}
 
