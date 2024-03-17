@@ -232,18 +232,9 @@ func (st *SessionStore[T]) AuthorisationChecks(next http.Handler, onFailureRedir
 				return
 			}
 
-			var csrfToken string
-			switch r.Header.Get("content-type") {
-			case "application/json":
-
-				if r.Header.Get(st.csrfHeaderName) == "" {
-					st.serverError(w, r, errors.New("csrf header not found"))
-					return
-				}
-
-				csrfToken = r.Header.Get(st.csrfHeaderName)
-
-			default:
+			csrfToken := r.Header.Get(st.csrfHeaderName)
+			if csrfToken == "" && r.Header.Get("content-type") != "application/json" {
+				// Skip parsing the form if we supply a csrf header instead
 				csrfToken = r.FormValue("csrf_token")
 			}
 
