@@ -199,16 +199,18 @@ func (st *SessionStore[T]) ResetTimer(sessionKey string) error {
 
 // AuthorisationChecks will load the session into the http.Request context, and checks CSRF protections
 // A http.StatusUnauthorized will be retuned to the client if no session can be found.
-func (st *SessionStore[T]) AuthorisationChecks(next http.Handler, onFailureRedirect string, onCheck func(w http.ResponseWriter, r *http.Request, sess T) bool) http.Handler {
+func (st *SessionStore[T]) AuthorisationChecks(next http.Handler, onFailure func(w http.ResponseWriter, r *http.Request), onCheck func(w http.ResponseWriter, r *http.Request, sess T) bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, sess := st.GetSessionFromRequest(r)
 		if sess == nil {
-			http.Redirect(w, r, onFailureRedirect, http.StatusTemporaryRedirect)
+
+			onFailure(w, r)
+
 			return
 		}
 
 		if onCheck != nil && !onCheck(w, r, *sess) {
-			http.Redirect(w, r, onFailureRedirect, http.StatusTemporaryRedirect)
+			onFailure(w, r)
 			return
 		}
 
