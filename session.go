@@ -263,6 +263,15 @@ func (st *SessionStore[T]) AuthorisationChecks(next http.Handler, onFailure func
 	})
 }
 
+func (st *SessionStore[T]) GenerateCSRFFromSession(sessionId string) (string, error) {
+	token, err := st.hmac(sessionId)
+	if err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("%x", token), nil
+}
+
 func (st *SessionStore[T]) GenerateRawCSRFToken(r *http.Request) ([]byte, error) {
 	cookie, err := r.Cookie(st.cookieName)
 	if err != nil {
