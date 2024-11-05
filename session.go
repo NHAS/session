@@ -263,7 +263,7 @@ func (st *SessionStore[T]) AuthorisationChecks(next http.Handler, onFailure func
 	})
 }
 
-func (st *SessionStore[T]) GenerateCSRFToken(r *http.Request) ([]byte, error) {
+func (st *SessionStore[T]) GenerateRawCSRFToken(r *http.Request) ([]byte, error) {
 	cookie, err := r.Cookie(st.cookieName)
 	if err != nil {
 		return nil, err
@@ -272,9 +272,23 @@ func (st *SessionStore[T]) GenerateCSRFToken(r *http.Request) ([]byte, error) {
 	return st.hmac(cookie.Value)
 }
 
+func (st *SessionStore[T]) GenerateCSRFToken(r *http.Request) (string, error) {
+	cookie, err := r.Cookie(st.cookieName)
+	if err != nil {
+		return "", err
+	}
+
+	token, err := st.hmac(cookie.Value)
+	if err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("%x", token), nil
+}
+
 func (st *SessionStore[T]) GenerateCSRFTokenTemplateHTML(r *http.Request) (template.HTML, error) {
 
-	token, err := st.GenerateCSRFToken(r)
+	token, err := st.GenerateRawCSRFToken(r)
 	if err != nil {
 		return template.HTML(""), err
 	}
