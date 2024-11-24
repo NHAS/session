@@ -241,7 +241,7 @@ func (st *SessionStore[T]) AuthorisationChecks(next http.Handler, onFailure func
 			}
 
 			if len(csrfToken) == 0 {
-				st.serverError(w, r, errors.New("token wasnt found in form"))
+				st.serverError(w, r, fmt.Errorf("csrf token wasnt found: %q %q", r.URL, r.Method))
 				return
 			}
 
