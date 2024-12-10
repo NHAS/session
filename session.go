@@ -127,6 +127,10 @@ func (st *SessionStore[T]) DeleteSession(w http.ResponseWriter, r *http.Request)
 	ClearCookie(st.cookieName, w, r)
 }
 
+func (st *SessionStore[T]) DeleteSessionWithKey(key string) {
+	st.deleteEntry(key)
+}
+
 func (st *SessionStore[T]) deleteEntry(cookieValue string) {
 
 	st.lock.Lock()
